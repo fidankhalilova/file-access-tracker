@@ -5,6 +5,7 @@ import type { TrackedFile } from "@/types/access";
 export const DEFAULT_ACCESS_LIMIT = 3;
 export const MOCK_USER_ID = "local-user";
 export const MAX_LOG_ENTRIES = 500;
+export const STORAGE_KEY = "file-access-tracker:v1";
 export const MOCK_FILES: TrackedFile[] = [
   {
     id: "file-1",

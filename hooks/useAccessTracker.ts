@@ -2,14 +2,45 @@
 
 // core state + logic for the access tracker
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AccessAction, AccessLogEntry, TrackedFile } from "@/types/access";
-import { MOCK_FILES, MOCK_USER_ID, MAX_LOG_ENTRIES } from "@/lib/constants";
+import {
+  MOCK_FILES,
+  MOCK_USER_ID,
+  MAX_LOG_ENTRIES,
+  STORAGE_KEY,
+} from "@/lib/constants";
 import { countAccess } from "@/lib/accessLog";
 
 export interface AccessResult {
   success: boolean;
   reason?: string;
+}
+
+interface PersistedState {
+  files: TrackedFile[];
+  log: AccessLogEntry[];
+  resetTimestamps: Record<string, string>;
+}
+
+function loadPersistedState(): PersistedState | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed.files) || !Array.isArray(parsed.log)) return null;
+    return parsed as PersistedState;
+  } catch {
+    return null;
+  }
+}
+
+function savePersistedState(state: PersistedState) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    console.log("Error")
+  }
 }
 
 export function useAccessTracker() {
@@ -19,7 +50,25 @@ export function useAccessTracker() {
     Record<string, string>
   >({});
 
+  const [isHydrated, setIsHydrated] = useState(false);
+
   const logRef = useRef<AccessLogEntry[]>([]);
+
+  useEffect(() => {
+    const persisted = loadPersistedState();
+    if (persisted) {
+      setFiles(persisted.files);
+      setLog(persisted.log);
+      logRef.current = persisted.log;
+      setResetTimestamps(persisted.resetTimestamps);
+    }
+    setIsHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    savePersistedState({ files, log, resetTimestamps });
+  }, [isHydrated, files, log, resetTimestamps]);
 
   const counts = useMemo(() => {
     const map: Record<string, number> = {};
@@ -55,6 +104,7 @@ export function useAccessTracker() {
       };
 
       let nextLog = [...logRef.current, entry];
+
       if (nextLog.length > MAX_LOG_ENTRIES) {
         nextLog = nextLog.slice(nextLog.length - MAX_LOG_ENTRIES);
       }
@@ -74,7 +124,6 @@ export function useAccessTracker() {
     }));
   }, []);
 
-  // per-file limit change
   const setLimit = useCallback((fileId: string, newLimit: number) => {
     if (newLimit < 1) return;
     setFiles((prev) =>
@@ -82,5 +131,26 @@ export function useAccessTracker() {
     );
   }, []);
 
-  return { files, log, counts, recordAccess, resetAccess, setLimit };
+  const clearAllData = useCallback(() => {
+    setFiles(MOCK_FILES);
+    setLog([]);
+    setResetTimestamps({});
+    logRef.current = [];
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      console.log("Error")
+    }
+  }, []);
+
+  return {
+    files,
+    log,
+    counts,
+    isHydrated,
+    recordAccess,
+    resetAccess,
+    setLimit,
+    clearAllData,
+  };
 }

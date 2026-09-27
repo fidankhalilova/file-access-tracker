@@ -10,6 +10,7 @@ A local-only, frontend-only simulation of a rate-limited file access system. Tra
 - **Blocked-attempt feedback** — if a click is ever actually rejected by the handler, the reason is shown inline, not just silently ignored
 - **Reset** — clears a file's usage without deleting its history
 - **Per-file limit editing** — change how many accesses a given file allows
+- **Persisted counts are even easier to tamper with than in-memory ones.** This project now saves its state to `localStorage` so counts survive a page refresh, for convenience during testing
 
 ## Getting started
 
